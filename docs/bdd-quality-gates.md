@@ -33,8 +33,10 @@ git config core.hooksPath .githooks
 - `logCucumberRun` reads `build/reports/cucumber/report.json`. Gradle 9 writes
   one JUnit XML file per feature, not one for the suite class.
 - The Detekt PostToolUse hook runs only when a `.kt` or `.kts` file is edited.
-- Gradle runs on Java 21 (`org.gradle.java.home`), because Detekt 1.23
-  crashes inside a Java 25 daemon. Detekt 2.0 alphas need a newer Kotlin
+- The Gradle daemon runs on Java 21 through Gradle's daemon JVM criteria
+  (`gradle/gradle-daemon-jvm.properties` plus the foojay resolver), because
+  Detekt 1.23 crashes inside a Java 25 daemon. genai pins a machine path with
+  `org.gradle.java.home` instead; this repo avoids that. Detekt 2.0 alphas need a newer Kotlin
   Gradle plugin than 2.0.21.
 
 ## Known limits

@@ -55,9 +55,9 @@ example domains.
 
 ## Build and test
 
-- Java 21. `gradle.properties` pins `org.gradle.java.home` to a local
-  Java 21, because Detekt 1.23 cannot run inside a Java 25 Gradle daemon.
-  Change the path for your machine.
+- Any Java that can start Gradle 9.8. The Gradle daemon itself runs on Java 21
+  (`gradle/gradle-daemon-jvm.properties`), found locally or downloaded through
+  the foojay resolver, because Detekt 1.23 cannot run inside a Java 25 daemon.
 - Docker, for Testcontainers (`postgres:17-alpine`).
 
 ```sh

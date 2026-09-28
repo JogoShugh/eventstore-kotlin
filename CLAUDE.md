@@ -38,8 +38,11 @@ Deterministic checks, not advice. Full design: `docs/bdd-quality-gates.md`.
 
 ## Build
 
-- Gradle runs on Java 21 via `org.gradle.java.home` in `gradle.properties`:
-  Detekt 1.23 cannot run inside a Java 25 daemon.
+- The Gradle daemon runs on Java 21 whatever your shell's Java is:
+  `gradle/gradle-daemon-jvm.properties` asks for it, and the foojay resolver
+  in `settings.gradle.kts` downloads one if none is installed. Detekt 1.23
+  cannot run inside a Java 25 daemon. Never put a machine path
+  (`org.gradle.java.home`) in the repository.
 - Tests need Docker (Testcontainers starts `postgres:17-alpine`).
 - `./gradlew check`
 - `scripts/mutation-check.sh` plants 11 known bugs in a temp copy and checks
