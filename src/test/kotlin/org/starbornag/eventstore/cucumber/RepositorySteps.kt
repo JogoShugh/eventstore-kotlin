@@ -18,7 +18,7 @@ import java.util.*
 class RepositorySteps(private val world: EventStoreWorld) {
 
     private val repository by lazy {
-        Repository<User?, User.Event>(world.eventStore, User::class, { null }, User::evolve)
+        Repository<User?, User.Event>(world.eventStore, User::class, { null }, User::evolve, world.userSnapshot)
     }
 
     private var userId: UUID = UUID.randomUUID()
@@ -59,6 +59,19 @@ class RepositorySteps(private val world: EventStoreWorld) {
     @Then("the command is rejected")
     fun theCommandIsRejected() {
         assertThat(commandOutcome!!.exceptionOrNull()).isNotNull().isInstanceOf(WrongExpectedVersion::class)
+    }
+
+    @Then("the command fails")
+    fun theCommandFails() {
+        assertThat(commandOutcome!!.exceptionOrNull()).isNotNull()
+    }
+
+    @Given("users with these names are created:")
+    fun usersWithTheseNamesAreCreated(table: DataTable) = world.blocking {
+        table.asMaps().forEach { row ->
+            val id = UUID.randomUUID()
+            repository.handle(id, decide = User.create(id, row["name"]!!))
+        }
     }
 
     @Then("the user loaded from the repository is:")

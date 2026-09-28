@@ -13,12 +13,14 @@ data class Versioned<S>(val state: S, val version: Long)
  *
  * This is the functional take on the .NET workshop's step 07 (aggregate and repository):
  * there is no mutable aggregate base class, only `initial`, `evolve` and a decide function.
+ * An optional [snapshot] (step 08) writes the new state in the same transaction as the events.
  */
 class Repository<S, E : Any>(
     private val eventStore: EventStore,
     private val streamType: KClass<*>,
     private val initial: () -> S,
-    private val evolve: (S, E) -> S
+    private val evolve: (S, E) -> S,
+    private val snapshot: Snapshot<S>? = null
 ) {
     suspend fun find(id: UUID): Versioned<S>? {
         val recorded = eventStore.readStream(id)
@@ -46,7 +48,10 @@ class Repository<S, E : Any>(
         val events = decide(state)
         if (events.isEmpty()) return Versioned(state, loadedVersion)
 
-        val newVersion = eventStore.appendEvents(streamType, id, events, loadedVersion)
-        return Versioned(events.fold(state, evolve), newVersion)
+        val newState = events.fold(state, evolve)
+        val newVersion = eventStore.appendEvents(streamType, id, events, loadedVersion) { session, version ->
+            snapshot?.handle(session, newState, version)
+        }
+        return Versioned(newState, newVersion)
     }
 }

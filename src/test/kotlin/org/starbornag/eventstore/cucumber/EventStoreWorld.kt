@@ -2,12 +2,17 @@ package org.starbornag.eventstore.cucumber
 
 import bankaccounts.BankAccount
 import bankaccounts.BankAccountEvents
+import io.r2dbc.spi.ConnectionFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import org.starbornag.eventstore.EventStore
 import org.starbornag.eventstore.PgEventStore
 import org.starbornag.eventstore.RecordedEvent
+import org.starbornag.eventstore.Snapshot
+import org.starbornag.eventstore.SqlSession
 import org.starbornag.eventstore.tools.PostgresDatabase
+import org.starbornag.eventstore.withSession
+import users.User
 import java.time.OffsetDateTime
 import java.util.*
 
@@ -27,11 +32,20 @@ class EventStoreWorld {
     var notedTime: OffsetDateTime? = null
     var aggregate: BankAccount? = null
 
+    /** Set by a Background step before the user repository is first used. */
+    var userSnapshot: Snapshot<User?>? = null
+
+    private lateinit var connectionFactory: ConnectionFactory
+
     fun startScenario() = blocking {
         val schemaName = "scenario_" + UUID.randomUUID().toString().replace("-", "")
-        eventStore = PgEventStore(PostgresDatabase.freshSchema(schemaName))
+        connectionFactory = PostgresDatabase.freshSchema(schemaName)
+        eventStore = PgEventStore(connectionFactory)
         eventStore.init()
     }
+
+    /** Runs SQL directly against the scenario's schema, outside the event store. */
+    suspend fun <T> sql(block: suspend (SqlSession) -> T): T = connectionFactory.withSession(block)
 
     suspend fun append(events: List<BankAccount.Event>, expectedVersion: Long? = null): Long =
         eventStore.appendEvents(BankAccount::class, account.bankAccountId, events, expectedVersion)

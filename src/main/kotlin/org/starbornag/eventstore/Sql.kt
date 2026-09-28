@@ -22,9 +22,11 @@ class SqlSession(val connection: Connection) {
      * Runs a statement and returns the number of rows updated.
      * Without parameters, several statements may be sent at once.
      */
-    suspend fun execute(sql: String, vararg params: Any?): Long {
+    suspend fun execute(sql: String, vararg params: Any?): Long = execute(sql, params.asList())
+
+    suspend fun execute(sql: String, params: List<Any?>): Long {
         var rowsUpdated = 0L
-        statement(sql, params.asList()).execute().asFlow().collect { result ->
+        statement(sql, params).execute().asFlow().collect { result ->
             result.rowsUpdated.asFlow().collect { rowsUpdated += it }
         }
         return rowsUpdated
