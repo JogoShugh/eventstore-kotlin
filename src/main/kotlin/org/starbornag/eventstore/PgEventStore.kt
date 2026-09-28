@@ -21,8 +21,8 @@ class PgEventStore(
 ) : EventStore {
 
     private val schemaSql: String by lazy {
-        PgEventStore::class.java.getResource("schema.sql")?.readText()
-            ?: throw IllegalStateException("schema.sql resource not found")
+        checkNotNull(PgEventStore::class.java.getResource("schema.sql")) { "schema.sql resource not found" }
+            .readText()
     }
 
     override suspend fun init() {
@@ -49,8 +49,7 @@ class PgEventStore(
                     .filter { it.handles(event::class) }
                     .forEach { it.handle(session, event) }
             }
-            val newVersion = streamVersion(session, streamId)
-                ?: throw IllegalStateException("Stream $streamId missing after append")
+            val newVersion = checkNotNull(streamVersion(session, streamId)) { "Stream $streamId missing after append" }
             beforeCommit(session, newVersion)
             newVersion
         }
@@ -83,7 +82,7 @@ class PgEventStore(
         atStreamVersion: Long?,
         atTimestamp: OffsetDateTime?
     ): List<RecordedEvent> {
-        val params = mutableListOf<Any>(streamId)
+        val params = mutableListOf<Any?>(streamId)
         val sql = buildString {
             append("SELECT id, data, stream_id, type, version, created FROM events WHERE stream_id = \$1")
             atStreamVersion?.let {
@@ -98,10 +97,11 @@ class PgEventStore(
         }
 
         return connectionFactory.withSession { session ->
-            session.query(sql, *params.toTypedArray()) { row ->
+            session.query(sql, params) { row ->
                 val type = row.value<String>("type")!!
-                val eventClass = typeMapper.toType(type)
-                    ?: throw IllegalStateException("Unknown event type '$type' in stream $streamId")
+                val eventClass = checkNotNull(typeMapper.toType(type)) {
+                    "Unknown event type '$type' in stream $streamId"
+                }
                 RecordedEvent(
                     id = row.value<UUID>("id")!!,
                     streamId = row.value<UUID>("stream_id")!!,

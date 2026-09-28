@@ -18,16 +18,22 @@ inline fun <reified T : Any> sqlNull() = SqlNull(T::class.javaObjectType)
 /** Thin coroutine wrapper over one R2DBC connection. Parameters bind positionally to `$1`, `$2`, … */
 class SqlSession(val connection: Connection) {
 
-    /** Runs a statement and returns the number of rows updated. Without parameters, several statements may be sent at once. */
+    /**
+     * Runs a statement and returns the number of rows updated.
+     * Without parameters, several statements may be sent at once.
+     */
     suspend fun execute(sql: String, vararg params: Any?): Long {
         var rowsUpdated = 0L
-        statement(sql, params).execute().asFlow().collect { result ->
+        statement(sql, params.asList()).execute().asFlow().collect { result ->
             result.rowsUpdated.asFlow().collect { rowsUpdated += it }
         }
         return rowsUpdated
     }
 
-    suspend fun <T> query(sql: String, vararg params: Any?, mapper: (Row) -> T): List<T> {
+    suspend fun <T> query(sql: String, vararg params: Any?, mapper: (Row) -> T): List<T> =
+        query(sql, params.asList(), mapper)
+
+    suspend fun <T> query(sql: String, params: List<Any?>, mapper: (Row) -> T): List<T> {
         val rows = mutableListOf<T>()
         statement(sql, params).execute().asFlow().collect { result ->
             // Reactive streams cannot emit null, so wrap each mapped value.
@@ -37,13 +43,15 @@ class SqlSession(val connection: Connection) {
     }
 
     suspend fun <T> querySingleOrNull(sql: String, vararg params: Any?, mapper: (Row) -> T): T? =
-        query(sql, *params, mapper = mapper).singleOrNull()
+        query(sql, params.asList(), mapper).singleOrNull()
 
-    private fun statement(sql: String, params: Array<out Any?>): Statement {
+    private fun statement(sql: String, params: List<Any?>): Statement {
         val statement = connection.createStatement(sql)
         params.forEachIndexed { index, param ->
             when (param) {
-                null -> throw IllegalArgumentException("Parameter \$${index + 1} is null; bind SqlNull to give its type")
+                null -> throw IllegalArgumentException(
+                    "Parameter \$${index + 1} is null; bind SqlNull to give its type"
+                )
                 is SqlNull -> statement.bindNull(index, param.type)
                 else -> statement.bind(index, param)
             }
@@ -69,7 +77,8 @@ suspend fun <T> ConnectionFactory.inTransaction(block: suspend (SqlSession) -> T
         session.connection.beginTransaction().awaitFirstOrNull()
         val result = try {
             block(session)
-        } catch (e: Throwable) {
+        } catch (@Suppress("TooGenericExceptionCaught") e: Throwable) {
+            // Any failure, including cancellation, must roll back; the exception is rethrown unchanged.
             withContext(NonCancellable) { session.connection.rollbackTransaction().awaitFirstOrNull() }
             throw e
         }

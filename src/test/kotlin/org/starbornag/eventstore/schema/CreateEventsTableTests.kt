@@ -1,4 +1,4 @@
-package org.starbornag.eventstore.e02_create_events_table
+package org.starbornag.eventstore.schema
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo

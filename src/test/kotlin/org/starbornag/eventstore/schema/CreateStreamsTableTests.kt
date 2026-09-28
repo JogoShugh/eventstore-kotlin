@@ -1,4 +1,4 @@
-package org.starbornag.eventstore.e01_create_streams_table
+package org.starbornag.eventstore.schema
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo
