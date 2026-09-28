@@ -4,6 +4,9 @@ import org.starbornag.eventstore.Projection
 
 /** Read model across two streams: a user's name plus the count and total of their orders. */
 class UserDashboardProjection : Projection() {
+    /** A user name that makes the projection throw a plain Kotlin error, to test rollback. */
+    var failForUserName: String? = null
+
     init {
         projects<User.Event.UserCreated> { session, event ->
             session.execute(
@@ -13,6 +16,7 @@ class UserDashboardProjection : Projection() {
         }
         projects<User.Event.UserNameUpdated> { session, event ->
             session.execute("UPDATE user_dashboards SET user_name = \$2 WHERE id = \$1", event.userId, event.userName)
+            check(event.userName != failForUserName) { "Projection refused user name ${event.userName}" }
         }
         projects<Order.Event.OrderCreated> { session, event ->
             session.execute(

@@ -18,10 +18,17 @@ class ProjectionSteps(private val world: EventStoreWorld) {
         Repository<Order?, Order.Event>(world.eventStore, Order::class, { null }, Order::evolve)
     }
 
+    private val dashboardProjection = UserDashboardProjection()
+
     @Given("a user dashboard projection into a user_dashboards table")
     fun aUserDashboardProjection() = world.blocking {
         world.sql { it.execute(UserDashboardProjection.CREATE_TABLE) }
-        world.useProjections(UserDashboardProjection())
+        world.useProjections(dashboardProjection)
+    }
+
+    @Given("the user dashboard projection throws an error for the user name {string}")
+    fun theProjectionThrowsForTheUserName(name: String) {
+        dashboardProjection.failForUserName = name
     }
 
     @Given("the user_dashboards table refuses the user name {string}")

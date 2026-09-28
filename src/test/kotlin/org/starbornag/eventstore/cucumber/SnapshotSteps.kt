@@ -6,6 +6,7 @@ import io.cucumber.datatable.DataTable
 import io.cucumber.java.en.Given
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
+import org.starbornag.eventstore.Snapshot
 import org.starbornag.eventstore.SnapshotToTable
 import org.starbornag.eventstore.value
 import users.User
@@ -26,6 +27,16 @@ class SnapshotSteps(private val world: EventStoreWorld) {
     fun theUsersTableRefusesTheName(name: String) = world.blocking {
         // DDL cannot take bind parameters; the name comes from the feature file, not from users.
         world.sql { it.execute("ALTER TABLE users ADD CONSTRAINT refused_name CHECK (name <> '$name')") }
+    }
+
+    @Given("the user snapshot throws an error for the name {string}")
+    fun theUserSnapshotThrowsForTheName(name: String) {
+        val snapshot = checkNotNull(world.userSnapshot) { "Store user snapshots in a table first" }
+        // Fails in Kotlin after the event is appended, unlike a database constraint.
+        world.userSnapshot = Snapshot { session, user: User?, version ->
+            check(user?.name != name) { "Snapshot refused name $name" }
+            snapshot.handle(session, user, version)
+        }
     }
 
     @When("the users table is queried for names containing {string}")

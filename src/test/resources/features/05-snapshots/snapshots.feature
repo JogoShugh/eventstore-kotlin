@@ -31,10 +31,13 @@ Feature: Snapshots of aggregate state
       | John Doe   |
       | John Smith |
 
-  Scenario: A failed snapshot write rolls back the events
+  # "Forbidden" fails inside PostgreSQL, which aborts the transaction on its own.
+  # "Crash" fails in Kotlin after the event is written, so only an explicit rollback removes it.
+  Scenario Outline: A failed snapshot write rolls back the events
     Given the users table refuses the name "Forbidden"
+    And the user snapshot throws an error for the name "Crash"
     And a user "John Doe" renamed 1 times
-    When the user is renamed to "Forbidden" expecting version any
+    When the user is renamed to "<new name>" expecting version any
     Then the command fails
     And the user loaded from the repository is:
       | name     | version |
@@ -42,3 +45,8 @@ Feature: Snapshots of aggregate state
     And the users table contains:
       | name     | version |
       | Rename 1 | 1       |
+
+    Examples:
+      | new name  |
+      | Forbidden |
+      | Crash     |

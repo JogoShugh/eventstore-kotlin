@@ -23,6 +23,7 @@ Feature: Inline projections into read models
 
   Scenario Outline: A command that does not append leaves the dashboard unchanged
     Given the user_dashboards table refuses the user name "Forbidden"
+    And the user dashboard projection throws an error for the user name "Crash"
     And a user "John Doe" renamed 0 times
     When the user is renamed to "<new name>" expecting version <expected>
     Then the command <outcome>
@@ -33,7 +34,10 @@ Feature: Inline projections into read models
       | user name | orders | total amount |
       | John Doe  | 0      | 0            |
 
+    # "Forbidden" fails inside PostgreSQL, which aborts the transaction on its own.
+    # "Crash" fails in Kotlin after the event is written, so only an explicit rollback removes it.
     Examples:
       | new name   | expected | outcome     |
       | Alan Smith | 5        | is rejected |
       | Forbidden  | any      | fails       |
+      | Crash      | any      | fails       |
