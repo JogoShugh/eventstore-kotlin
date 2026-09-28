@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import org.starbornag.eventstore.EventStore
 import org.starbornag.eventstore.PgEventStore
+import org.starbornag.eventstore.Projection
 import org.starbornag.eventstore.RecordedEvent
 import org.starbornag.eventstore.Snapshot
 import org.starbornag.eventstore.SqlSession
@@ -32,6 +33,8 @@ class EventStoreWorld {
     var notedTime: OffsetDateTime? = null
     var aggregate: BankAccount? = null
 
+    val userId: UUID = UUID.randomUUID()
+
     /** Set by a Background step before the user repository is first used. */
     var userSnapshot: Snapshot<User?>? = null
 
@@ -42,6 +45,11 @@ class EventStoreWorld {
         connectionFactory = PostgresDatabase.freshSchema(schemaName)
         eventStore = PgEventStore(connectionFactory)
         eventStore.init()
+    }
+
+    /** Replaces the event store with one that runs [projections]; call before any repository is used. */
+    fun useProjections(vararg projections: Projection) {
+        eventStore = PgEventStore(connectionFactory, projections.asList())
     }
 
     /** Runs SQL directly against the scenario's schema, outside the event store. */

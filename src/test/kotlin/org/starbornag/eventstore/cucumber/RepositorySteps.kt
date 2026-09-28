@@ -21,7 +21,8 @@ class RepositorySteps(private val world: EventStoreWorld) {
         Repository<User?, User.Event>(world.eventStore, User::class, { null }, User::evolve, world.userSnapshot)
     }
 
-    private var userId: UUID = UUID.randomUUID()
+    /** The user the other steps act on; shared with steps that record things for this user. */
+    val userId: UUID get() = world.userId
     private var commandOutcome: Result<Versioned<User?>>? = null
     private var loadedUser: Versioned<User?>? = null
 
