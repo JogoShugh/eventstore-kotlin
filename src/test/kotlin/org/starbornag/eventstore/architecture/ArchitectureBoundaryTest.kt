@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test
 class ArchitectureBoundaryTest {
 
     private val productionFiles
-        get() = Konsist.scopeFromProject().files.filter { it.path.contains("/eventstore/src/main/") }
+        get() = Konsist.scopeFromProject().files.filter { it.path.contains("/src/main/") }
 
     // Guards the other rules: an empty scope would make every assertFalse pass vacuously.
     @Test

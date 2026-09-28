@@ -1,0 +1,48 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file_path=$(jq -r '.tool_input.file_path // empty'); case \"$file_path\" in *src/main/kotlin/*.kt) cd \"${CLAUDE_PROJECT_DIR}\"; if [ -z \"$(git status --porcelain -- src/test/resources/features 2>/dev/null)\" ]; then echo \"Blocked: about to modify production code ($file_path) with no .feature file changes in this changeset yet. Write or update the Gherkin scenario first, run Cucumber to confirm it fails, then implement.\" 1>&2; exit 2; fi ;; esac; exit 0",
+            "timeout": 15,
+            "statusMessage": "Checking Gherkin-first ordering..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file_path=$(jq -r '.tool_input.file_path // empty'); case \"$file_path\" in *.kt|*.kts) out=$(\"${CLAUDE_PROJECT_DIR}/gradlew\" -p \"${CLAUDE_PROJECT_DIR}\" detekt --console=plain 2>&1); ec=$?; if [ $ec -ne 0 ]; then echo \"$out\" | grep -v WARNING 1>&2; exit 2; fi ;; esac; exit 0",
+            "timeout": 120,
+            "statusMessage": "Running Detekt..."
+          },
+          {
+            "type": "command",
+            "command": "file_path=$(jq -r '.tool_input.file_path // empty'); ts=$(date -u +%Y-%m-%dT%H:%M:%SZ); case \"$file_path\" in *src/main/kotlin/*.kt) echo \"$ts MAIN_WRITE ${file_path#${CLAUDE_PROJECT_DIR}/}\" >> \"${CLAUDE_PROJECT_DIR}/.claude/tdd-events.log\" ;; *src/test/resources/features/*.feature) echo \"$ts FEATURE_WRITE ${file_path#${CLAUDE_PROJECT_DIR}/}\" >> \"${CLAUDE_PROJECT_DIR}/.claude/tdd-events.log\" ;; esac; exit 0",
+            "timeout": 15,
+            "statusMessage": "Logging TDD event..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "out=$(\"${CLAUDE_PROJECT_DIR}/gradlew\" -p \"${CLAUDE_PROJECT_DIR}\" check --console=plain 2>&1); ec=$?; if [ $ec -ne 0 ]; then echo \"$out\" | grep -v WARNING | tail -80 1>&2; exit 2; fi",
+            "timeout": 600,
+            "statusMessage": "Running check (Cucumber, JUnit, Konsist, Detekt)..."
+          }
+        ]
+      }
+    ]
+  }
+}

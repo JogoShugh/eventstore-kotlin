@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Plants known bugs in a throwaway copy of eventstore/, one at a time, and runs the tests after each.
+# Plants known bugs in a throwaway copy of this repository, one at a time, and runs the tests after each.
 # Every bug must make at least one test fail; a bug that "survives" shows a gap in the scenarios.
 # The working tree is never modified. Needs Docker (Testcontainers) like the normal test run.
 #
-# Usage: eventstore/scripts/mutation-check.sh [output-file]
+# Usage: scripts/mutation-check.sh [output-file]
 # Results are printed and written as Markdown to output-file,
-# default eventstore/build/reports/mutation/mutation-results.md.
+# default build/reports/mutation/mutation-results.md.
 set -uo pipefail
 
 source_dir="$(cd "$(dirname "$0")/.." && pwd)"
 work_dir="$(mktemp -d)/eventstore"
 output="${1:-$source_dir/build/reports/mutation/mutation-results.md}"
 mkdir -p "$(dirname "$output")"
-rsync -a --exclude build --exclude .gradle --exclude scripts "$source_dir/" "$work_dir/"
+rsync -a --exclude build --exclude .gradle --exclude .git --exclude .claude --exclude scripts "$source_dir/" "$work_dir/"
 cd "$work_dir" || exit 1
 
 k=src/main/kotlin/org/starbornag/eventstore

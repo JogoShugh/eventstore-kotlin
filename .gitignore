@@ -2,3 +2,9 @@
 build/
 .kotlin/
 !gradle/wrapper/gradle-wrapper.jar
+
+# Local Gherkin-first TDD event log, read by .githooks/pre-commit
+.claude/tdd-events.log
+.claude/settings.local.json
+.idea/
+.DS_Store

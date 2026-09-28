@@ -57,14 +57,14 @@ tasks.test {
     }
 }
 
-// Appends a CUCUMBER_RUN fact to the repo's .claude/tdd-events.log for the pre-commit
+// Appends a CUCUMBER_RUN fact to .claude/tdd-events.log for the pre-commit
 // Gherkin-first ordering check. finalizedBy, not doLast: it must also run when tests fail.
 val logCucumberRun = tasks.register("logCucumberRun") {
     group = "verification"
     description = "Appends a CUCUMBER_RUN fact to .claude/tdd-events.log for the pre-commit TDD-ordering check."
     // Gradle 9 writes one JUnit XML per feature file, so read Cucumber's own JSON report instead.
     val reportFile = layout.buildDirectory.file("reports/cucumber/report.json")
-    val logFile = rootDir.resolve("../.claude/tdd-events.log")
+    val logFile = rootDir.resolve(".claude/tdd-events.log")
     doLast {
         val json = reportFile.get().asFile.takeIf { it.exists() }?.readText() ?: return@doLast
         fun count(pattern: String) = Regex(pattern).findAll(json).count()

@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# Validates Gherkin-first TDD ordering before allowing a commit that touches
+# production code. Ported from genai-service-gradle-plugin; see docs/bdd-quality-gates.md for the full
+# design. Activate with: git config core.hooksPath .githooks
+set -euo pipefail
+
+staged_main=$(git diff --cached --name-only -- 'src/main/kotlin/*.kt' || true)
+if [ -z "$staged_main" ]; then
+  exit 0
+fi
+
+log_file=".claude/tdd-events.log"
+# The event log stamps UTC ("...Z"). %cI carries the committer's local offset, and comparing that as a
+# string against UTC stamps shifts the window by the offset, so convert the commit time to UTC first.
+commit_epoch=$(git log -1 --format=%ct 2>/dev/null || echo 0)
+since=$(date -u -r "$commit_epoch" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+  || date -u -d "@$commit_epoch" +%Y-%m-%dT%H:%M:%SZ)
+
+if [ ! -f "$log_file" ]; then
+  echo "pre-commit: no TDD event log found ($log_file) but this commit touches src/main/kotlin." 1>&2
+  echo "Cannot verify Gherkin-first ordering. See docs/bdd-quality-gates.md for how the log is produced." 1>&2
+  exit 1
+fi
+
+recent=$(awk -v since="$since" '$1 > since' "$log_file")
+
+if [ -z "$recent" ]; then
+  echo "pre-commit: no TDD events recorded since the last commit, but this commit touches src/main/kotlin." 1>&2
+  exit 1
+fi
+
+first_feature=$(echo "$recent" | grep "FEATURE_WRITE" | head -1 | cut -d' ' -f1 || true)
+first_fail=$(echo "$recent" | grep "CUCUMBER_RUN FAIL" | head -1 | cut -d' ' -f1 || true)
+first_main=$(echo "$recent" | grep "MAIN_WRITE" | head -1 | cut -d' ' -f1 || true)
+last_run=$(echo "$recent" | grep "CUCUMBER_RUN" | tail -1 || true)
+
+ok=true
+reasons=()
+
+if [ -z "$first_feature" ]; then
+  ok=false
+  reasons+=("no FEATURE_WRITE event recorded since the last commit")
+fi
+if [ -z "$first_fail" ]; then
+  ok=false
+  reasons+=("no CUCUMBER_RUN FAIL event recorded since the last commit (Gherkin was never observed failing)")
+fi
+if [ -n "$first_feature" ] && [ -n "$first_main" ] && [[ "$first_feature" > "$first_main" ]]; then
+  ok=false
+  reasons+=("production code (MAIN_WRITE at $first_main) was touched before any FEATURE_WRITE ($first_feature)")
+fi
+if [ -n "$first_fail" ] && [ -n "$first_main" ] && [[ "$first_fail" > "$first_main" ]]; then
+  ok=false
+  reasons+=("production code (MAIN_WRITE at $first_main) was touched before Cucumber was ever seen failing ($first_fail)")
+fi
+if [[ "$last_run" != *"PASS"* ]]; then
+  ok=false
+  reasons+=("most recent CUCUMBER_RUN since the last commit is not PASS")
+fi
+
+if [ "$ok" = false ]; then
+  echo "pre-commit: TDD ordering check FAILED:" 1>&2
+  for r in "${reasons[@]}"; do
+    echo "  - $r" 1>&2
+  done
+  echo "" 1>&2
+  echo "Recorded events since the last commit:" 1>&2
+  echo "$recent" | sed 's/^/  /' 1>&2
+  exit 1
+fi
+
+echo "pre-commit: TDD ordering check passed."
+echo "$recent" | sed 's/^/  /'
+exit 0
