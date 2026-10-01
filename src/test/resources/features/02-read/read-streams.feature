@@ -30,3 +30,9 @@ Feature: Reading streams
     When an unknown stream is read
     Then there is no stream state
     And the stream contains no events
+
+  Scenario: The streams of one type are listed oldest first, leaving other types out
+    Given another bank account opened later
+    And a stream of another type
+    When the bank account streams are listed
+    Then the listed streams are this bank account, then the other one

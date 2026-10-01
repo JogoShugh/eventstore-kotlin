@@ -125,6 +125,19 @@ class PgEventStore(
             }
         }
 
+    override suspend fun streamIds(streamType: KClass<*>): List<UUID> =
+        connectionFactory.withSession { session ->
+            session.query(
+                """
+                SELECT s.id FROM streams s
+                JOIN events e ON e.stream_id = s.id AND e.version = 0
+                WHERE s.type = ${'$'}1
+                ORDER BY e.created, s.id
+                """.trimIndent(),
+                typeMapper.toName(streamType)
+            ) { it.value<UUID>("id")!! }
+        }
+
     private suspend fun streamVersion(session: SqlSession, streamId: UUID): Long? =
         session.querySingleOrNull("SELECT version FROM streams WHERE id = \$1", streamId) {
             it.value<Long>("version")

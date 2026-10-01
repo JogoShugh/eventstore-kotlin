@@ -3,11 +3,16 @@ package org.starbornag.eventstore.cucumber
 import assertk.assertThat
 import assertk.assertions.isEqualTo
 import assertk.assertions.isNull
+import bankaccounts.BankAccount
+import bankaccounts.BankAccountEvents
 import io.cucumber.datatable.DataTable
 import io.cucumber.java.Before
 import io.cucumber.java.en.Given
 import io.cucumber.java.en.Then
+import io.cucumber.java.en.When
+import java.util.UUID
 import kotlinx.coroutines.delay
+import users.User
 
 /** Steps shared by several features: arranging streams and checking their state. */
 class StreamSteps(private val world: EventStoreWorld) {
@@ -48,6 +53,32 @@ class StreamSteps(private val world: EventStoreWorld) {
     @Then("there is no stream state")
     fun thereIsNoStreamState() = world.blocking {
         assertThat(world.eventStore.getStreamState(world.streamId)).isNull()
+    }
+
+    private var otherAccount: UUID? = null
+    private var listed: List<UUID> = emptyList()
+
+    @Given("another bank account opened later")
+    fun anotherBankAccountOpenedLater() = world.blocking {
+        delay(GAP_MILLIS)
+        val other = BankAccountEvents()
+        world.eventStore.appendEvents(BankAccount::class, other.bankAccountId, other.numbered(1))
+        otherAccount = other.bankAccountId
+    }
+
+    @Given("a stream of another type")
+    fun aStreamOfAnotherType() = world.blocking {
+        world.eventStore.appendEvents(User::class, UUID.randomUUID(), BankAccountEvents().numbered(1))
+    }
+
+    @When("the bank account streams are listed")
+    fun theBankAccountStreamsAreListed() = world.blocking {
+        listed = world.eventStore.streamIds(BankAccount::class)
+    }
+
+    @Then("the listed streams are this bank account, then the other one")
+    fun theListedStreamsAreThisThenTheOther() {
+        assertThat(listed).isEqualTo(listOf(world.account.bankAccountId, otherAccount))
     }
 
     private fun eventsFrom(table: DataTable, fromVersion: Long) =

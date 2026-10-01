@@ -46,6 +46,9 @@ interface EventStore {
     ): List<Any> = readStream(streamId, atStreamVersion, atTimestamp).map { it.data }
 
     suspend fun getStreamState(streamId: UUID): StreamState?
+
+    /** The ids of every stream of [streamType], oldest first (by when its first event was appended). */
+    suspend fun streamIds(streamType: KClass<*>): List<UUID>
 }
 
 data class RecordedEvent(
